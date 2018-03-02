@@ -2,22 +2,23 @@ from bs4 import BeautifulSoup
 import os
 import time
 from os import listdir
+import sys
+import getopt
 
 
 # deal with txt in muphi_trace folder
 def filenameList():
+
     nameList = []
     ListNameStr = listdir('murphi_trace')
-    m = 2# len(ListNameStr)
+    m = len(ListNameStr)
     for i in range(1, m):
         nameList.append(ListNameStr[i].split('.')[0])
-
-    print(nameList)
     return nameList
 
 
 def read_states(fn):
-    filename = 'murphi_trace/'+ fn + '.txt'
+    filename = 'murphi_trace/' + fn + '.txt'
     states = []
     start = True
     count = 1
@@ -39,7 +40,7 @@ def read_states(fn):
 
             # 一个状态读入完毕，可以绘画
             if line.startswith('-'):
-                draw(fn, states, s,count)
+                draw(fn, states, s, count)
 
                 count += 1
                 states = []
@@ -53,7 +54,7 @@ def read_states(fn):
                 states.append([n for n in line.split(':')])
 
 
-def draw(fn,states,s,count):
+def draw(fn, states, s, count):
     # edit each state id, if changed, then class = dark; else, change class = light
     for i in range(len(states)):
         q = soup.find(id=states[i][0])
@@ -73,24 +74,48 @@ def draw(fn,states,s,count):
     html = soup.prettify()
 
     # write each html into profile
-    with open("./"+ timestr +fn+'_output/'+fn+'_htmls/output'+str(count)+".html", "w") as file:
+    with open("./" + timestr + fn + '_output/' + fn + '_htmls/output' + str(count) + ".html", "w") as file:
         file.write(html)
 
-    rooturl='./' + timestr + fn+'_output/'
+    rooturl = './' + timestr + fn + '_output/'
 
     # transform html to png
-    os.system('webkit2png -W 1366 -H 768 -F '+rooturl+fn+'_htmls/output'+str(count)+'.html -D '
-        + rooturl+'/'+fn+'_pngs -o ' + fn + str(count))
+    os.system('webkit2png -W 1366 -H 768 -F ' + rooturl + fn + '_htmls/output' + str(count) + '.html -D '
+              + rooturl + '/' + fn + '_pngs -o ' + fn + str(count))
 
 
-if __name__ == '__main__':
+help_msg = '''
+Usage: python3 main.py [-n|-h] for [--name|--help]
+'''
 
+try:
     default_url = os.path.abspath('.')
 
     # change location
     os.chdir(default_url)
 
-    FileList = filenameList()
+    opts, args = getopt.getopt(sys.argv[1:], 'n:h', ['name=', 'help'])
+
+    filename = ''
+    FileList = []
+    for opt, arg in opts:
+        if opt in ('-h', '--help'):
+            sys.stdout.write(help_msg)
+            sys.exit(0)
+        elif opt in ('-n', '--name'):
+            filename = arg
+        else:
+            print('Wrong input!\n')
+            sys.stderr.write(help_msg)
+            sys.exit(1)
+
+    if filename == '*' or not filename:
+        FileList = filenameList()
+    elif filename and os.path.exists('murphi_trace/{}.txt'.format(filename)):
+        FileList = [filename]
+    elif filename and not os.path.exists('murphi_trace/{}.txt'.format(filename)):
+        print('murphi trace {} does not exist! Please check again!')
+        sys.exit(1)
 
     for fn in FileList:
         print('begin: ', fn)
@@ -106,12 +131,15 @@ if __name__ == '__main__':
 
         # initialization
         list = []
-        soup = BeautifulSoup(open('./'+ protocol.lower() +'.html'), "lxml")
+        soup = BeautifulSoup(open('./' + protocol.lower() + '.html'), "lxml")
 
         read_states(fn)
-        folder_url = timestr + fn+'_output/'
-        png_url = timestr + fn+'_output/'+fn+'_pngs/'
-        # os.chdir(timestr + fn+'_output/'+fn+'_pngs')
-        if not os.system('ffmpeg -f image2 -r 1/3 -start_number 1 -i '+ png_url + fn + '%d-full.png -vcodec mpeg4 -y \
-        ./'+ folder_url + fn + '.mp4'):
+        folder_url = timestr + fn + '_output/'
+        png_url = timestr + fn + '_output/' + fn + '_pngs/'
+        if not os.system('ffmpeg -f image2 -r 1/3 -start_number 1 -i ' + png_url + fn + '%d-full.png -vcodec mpeg4 -y \
+        ./' + folder_url + fn + '.mp4'):
             print(fn, ' finished!')
+
+except getopt.GetoptError:
+    sys.stderr.write(help_msg)
+    sys.exit()
